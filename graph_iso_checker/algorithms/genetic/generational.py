@@ -1,3 +1,4 @@
+# graph_iso_checker/algorithms/genetic/generational.py
 import random
 import os
 import concurrent.futures
@@ -9,14 +10,15 @@ from .strategies.termination import TerminationStrategy
 
 
 def _eval_fitness(individual, g1, g2, fitness):
-    # вспомогательная функция для параллельного расчета фитнеса
+    # вспомогательная функция для параллельного расчёта фитнеса
     return fitness.evaluate(individual, g1, g2, {})
 
 
 class GeneticAlgorithm:
     """
-    Генетический алгоритм с параллельным расчетом фитнеса
-    и предварительной проверкой распределения степеней.
+    Генетический алгоритм с параллельным расчётом фитнеса
+    и использованием color refinement из контекста
+    для более узкой инициализации популяции.
     """
     def __init__(self,
                  population_size: int,
@@ -34,25 +36,36 @@ class GeneticAlgorithm:
         self.mutation        = mutation
         self.fitness         = fitness
         self.termination     = termination
-        # число процессов: по умолчанию все логические ядра
+        # по умолчанию используем все логические ядра
         self.num_workers     = num_workers or os.cpu_count()
 
 
-    def _initialize_population(self, g1, g2):
-        # инициализация популяции перестановок, согласованных по степеням
+    def _initialize_population(self, g1, g2, context):
+        # инициализация популяции на основе групп вершин
+        # если в context есть 'colors1'/'colors2', используем их
         n = g1.num_vertices
-        deg1 = [len(g1.neighbors(u)) for u in range(n)]
-        deg2 = [len(g2.neighbors(u)) for u in range(n)]
-        groups1, groups2 = {}, {}
-        for u, d in enumerate(deg1):
-            groups1.setdefault(d, []).append(u)
-        for v, d in enumerate(deg2):
-            groups2.setdefault(d, []).append(v)
+        if 'colors1' in context and 'colors2' in context:
+            groups1, groups2 = {}, {}
+            for u, col in enumerate(context['colors1']):
+                groups1.setdefault(col, []).append(u)
+            for v, col in enumerate(context['colors2']):
+                groups2.setdefault(col, []).append(v)
+        else:
+            # иначе группируем по степеням
+            deg1 = [len(g1.neighbors(u)) for u in range(n)]
+            deg2 = [len(g2.neighbors(u)) for u in range(n)]
+            groups1, groups2 = {}, {}
+            for u, d in enumerate(deg1):
+                groups1.setdefault(d, []).append(u)
+            for v, d in enumerate(deg2):
+                groups2.setdefault(d, []).append(v)
+
+
         population = []
         for _ in range(self.population_size):
             perm = [None] * n
-            for d, vs1 in groups1.items():
-                vs2 = groups2[d][:]
+            for key, vs1 in groups1.items():
+                vs2 = groups2.get(key, [])[:]
                 random.shuffle(vs2)
                 for u, v in zip(vs1, vs2):
                     perm[u] = v
@@ -61,28 +74,27 @@ class GeneticAlgorithm:
 
 
     def run(self, g1, g2, context):
-        # 1) проверка числа вершин
-        n1, n2 = g1.num_vertices, g2.num_vertices
-        if n1 != n2:
+        # 1) Проверка числа вершин
+        if g1.num_vertices != g2.num_vertices:
             return False, None
-        n = n1
+        n = g1.num_vertices
 
 
-        # 2) проверка распределения степеней
+        # 2) Предварительная проверка распределения степеней
         deg1 = sorted(len(g1.neighbors(u)) for u in range(n))
         deg2 = sorted(len(g2.neighbors(u)) for u in range(n))
         if deg1 != deg2:
             return False, None
 
 
-        # 3) целевое число совпадающих рёбер (из context или вычисляем)
+        # 3) Целевое число совпадающих рёбер
         target = context.get('edge_count')
         if target is None:
             target = sum(len(g1.neighbors(u)) for u in range(n)) // 2
 
 
-        # 4) инициализация популяции
-        population = self._initialize_population(g1, g2)
+        # 4) Инициализация популяции с учётом color refinement
+        population = self._initialize_population(g1, g2, context)
 
 
         best_map, best_fit = None, -1
@@ -101,7 +113,6 @@ class GeneticAlgorithm:
                         [self.fitness] * len(population),
                     ))
             else:
-                # однопоточная оценка
                 fitnesses = [
                     self.fitness.evaluate(ind, g1, g2, context)
                     for ind in population
@@ -116,12 +127,12 @@ class GeneticAlgorithm:
                 best_map = population[idx].copy()
 
 
-            # если найдено полное соответствие
+            # если найдено полное совпадение
             if best_fit == target:
                 return True, best_map
 
 
-            # проверка условия остановки
+            # проверка остановки
             if self.termination.should_terminate(population, fitnesses, generation, context):
                 break
 
@@ -138,5 +149,5 @@ class GeneticAlgorithm:
             generation += 1
 
 
-        # не нашли изоморфизма
+        # изоморфизм не найден
         return False, None
