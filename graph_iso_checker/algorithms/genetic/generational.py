@@ -132,7 +132,7 @@ class GeneticAlgorithm:
 
             #print("Лучшая особь есть")
 
-            #print(f"gen: {generation} best: {best_fit}, target: {target}")
+            print(f"gen: {generation} best: {best_fit}, target: {target}")
 
             # если найдено полное совпадение
             if best_fit == target:

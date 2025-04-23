@@ -229,6 +229,7 @@ class InvariantStage(Stage):
             context['result'] = False
         elif res == StageResult.ISO:
             context['result'] = True
+        print(f"Инвариант: {res}")
         return res
 
 

@@ -47,6 +47,7 @@ class RefinementStage(Stage):
 
         # проверяем совпадение распределения цветов
         if Counter(colors1) != Counter(colors2):
+            print(f"Окраска: {StageResult.NON_ISO}")
             return StageResult.NON_ISO
 
 
@@ -54,8 +55,10 @@ class RefinementStage(Stage):
         if len(set(colors1)) == n:
             mapping = {u: colors2.index(colors1[u]) for u in range(n)}
             context['mapping'] = mapping
+            print(f"Окраска: {StageResult.ISO}")
             return StageResult.ISO
 
 
         # иначе продолжаем
+        print(f"Окраска: {StageResult.CONTINUE}")
         return StageResult.CONTINUE
