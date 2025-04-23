@@ -14,10 +14,12 @@ class FitnessStrategy(ABC):
 class EdgeMatchFitness(FitnessStrategy):
     # Фитнес — число совпадающих рёбер
     def evaluate(self, individual, g1, g2, context):
+       # print("Начал считать фитнес")
         count = 0
         n = g1.num_vertices
         for u in range(n):
             for v in g1.neighbors(u):
                 if u < v and g2.has_edge(individual[u], individual[v]):
                     count += 1
+        #print(count)
         return count

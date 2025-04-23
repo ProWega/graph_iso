@@ -96,12 +96,15 @@ class GeneticAlgorithm:
         # 4) Инициализация популяции с учётом color refinement
         population = self._initialize_population(g1, g2, context)
 
+        #print("Есть популяция!")
+
 
         best_map, best_fit = None, -1
         generation = 0
 
 
         while True:
+
             # параллельная оценка фитнеса
             if self.num_workers > 1:
                 with concurrent.futures.ProcessPoolExecutor(max_workers=self.num_workers) as exe:
@@ -117,6 +120,7 @@ class GeneticAlgorithm:
                     self.fitness.evaluate(ind, g1, g2, context)
                     for ind in population
                 ]
+            #print("Оценка фитнеса готова")
 
 
             # обновление лучшей особи
@@ -126,6 +130,9 @@ class GeneticAlgorithm:
                 best_fit = gen_best
                 best_map = population[idx].copy()
 
+            #print("Лучшая особь есть")
+
+            #print(f"gen: {generation} best: {best_fit}, target: {target}")
 
             # если найдено полное совпадение
             if best_fit == target:
@@ -134,9 +141,10 @@ class GeneticAlgorithm:
 
             # проверка остановки
             if self.termination.should_terminate(population, fitnesses, generation, context):
+                #print("Критерий останова")
                 break
 
-
+            #print("Начинаем новое поколение")
             # формирование нового поколения
             new_pop = []
             while len(new_pop) < self.population_size:
@@ -147,6 +155,9 @@ class GeneticAlgorithm:
                 new_pop.extend([m1, m2])
             population = new_pop[:self.population_size]
             generation += 1
+            #print("Готово новое поколение")
+
+
 
 
         # изоморфизм не найден

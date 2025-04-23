@@ -25,6 +25,7 @@ class TournamentSelection(SelectionStrategy):
         # второй турнир
         contenders = random.sample(range(n), self.k)
         best2 = max(contenders, key=lambda i: fitnesses[i])
+
         return population[best1], population[best2]
 
 
